@@ -1,0 +1,350 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="search-card">
+    <form id="searchForm" method="post">
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="{{ form.departure_airport.id_for_label }}">Departure Airport</label>
+                {{ form.departure_airport }}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.currency.id_for_label }}">Currency</label>
+                {{ form.currency }}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.departure_date.id_for_label }}">Departure Date</label>
+                {{ form.departure_date }}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.departure_end_date.id_for_label }}">Search Until</label>
+                {{ form.departure_end_date }}
+            </div>
+        </div>
+
+        <div class="form-grid-row2">
+            <div class="form-group">
+                <label for="destination_airport">Destination Airport</label>
+                <select id="destination_airport" name="destination_airport" class="form-control">
+                    <option value="">Loading destinations...</option>
+                </select>
+                <div id="destinationLoader" style="display: none; margin-top: 8px; color: #94a3b8; font-size: 14px;">
+                    🔍 Loading available destinations...
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.departure_time.id_for_label }}">Departure Time Range</label>
+                {{ form.departure_time }}
+            </div>
+        </div>
+
+        <button type="submit" class="search-btn" id="searchBtn">
+            🔍 Search Flights
+        </button>
+    </form>
+</div>
+
+<div id="loading" class="loading" style="display: none;">
+    <p>🛫 Searching for the best flights...</p>
+</div>
+
+<div id="results" style="display: none;"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+console.log('🚀 Search page JavaScript loaded!');
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🎯 DOM loaded, starting initialization...');
+    
+    // Get form elements
+    const form = document.getElementById('searchForm');
+    const loadingDiv = document.getElementById('loading');
+    const resultsDiv = document.getElementById('results');
+    const searchBtn = document.getElementById('searchBtn');
+    
+    // Get departure airport select (try multiple possible IDs)
+    let departureAirportSelect = document.getElementById('id_departure_airport') || 
+                                 document.querySelector('select[name="departure_airport"]');
+    
+    const destinationAirportSelect = document.getElementById('destination_airport');
+    const destinationLoader = document.getElementById('destinationLoader');
+    
+    // Get date inputs
+    let departureDateInput = document.getElementById('id_departure_date') ||
+                            document.querySelector('input[name="departure_date"]');
+                            
+    let departureEndDateInput = document.getElementById('id_departure_end_date') ||
+                               document.querySelector('input[name="departure_end_date"]');
+
+    console.log('Elements found:', {
+        form: !!form,
+        departureAirportSelect: !!departureAirportSelect,
+        destinationAirportSelect: !!destinationAirportSelect,
+        departureDateInput: !!departureDateInput,
+        departureEndDateInput: !!departureEndDateInput
+    });
+    
+    if (!departureAirportSelect || !destinationAirportSelect) {
+        console.error('Required form elements not found!');
+        return;
+    }
+
+    // Pagination variables
+    let allFlights = [];
+    let currentPage = 1;
+    const flightsPerPage = 20;
+
+    // Set default dates
+    function setDefaultDates() {
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(today.getDate() + 1);
+        
+        const twoWeeksLater = new Date(tomorrow);
+        twoWeeksLater.setDate(tomorrow.getDate() + 14);
+
+        if (departureDateInput) {
+            departureDateInput.min = today.toISOString().split('T')[0];
+            if (!departureDateInput.value) {
+                departureDateInput.value = tomorrow.toISOString().split('T')[0];
+            }
+        }
+        
+        if (departureEndDateInput) {
+            departureEndDateInput.min = today.toISOString().split('T')[0];
+            if (!departureEndDateInput.value) {
+                departureEndDateInput.value = twoWeeksLater.toISOString().split('T')[0];
+            }
+        }
+    }
+
+    // Load destinations
+    async function loadDestinations(departureAirport) {
+        console.log('Loading destinations for:', departureAirport);
+        
+        if (!departureAirport) {
+            destinationAirportSelect.innerHTML = '<option value="">Select departure airport first...</option>';
+            return;
+        }
+
+        if (destinationLoader) destinationLoader.style.display = 'block';
+        destinationAirportSelect.innerHTML = '<option value="">Loading destinations...</option>';
+
+        try {
+            const response = await fetch(`/api/destinations/${departureAirport}/`);
+            const result = await response.json();
+
+            if (result.success && result.destinations) {
+                let optionsHtml = `<option value="ALL">All destinations (${result.count} available)</option>`;
+                
+                for (const [code, name] of Object.entries(result.destinations)) {
+                    optionsHtml += `<option value="${code}">${code} - ${name}</option>`;
+                }
+
+                destinationAirportSelect.innerHTML = optionsHtml;
+                console.log('Destinations loaded successfully');
+            } else {
+                destinationAirportSelect.innerHTML = '<option value="ALL">All destinations (error loading)</option>';
+            }
+        } catch (error) {
+            console.error('Error loading destinations:', error);
+            destinationAirportSelect.innerHTML = '<option value="ALL">All destinations (network error)</option>';
+        } finally {
+            if (destinationLoader) destinationLoader.style.display = 'none';
+        }
+    }
+
+    // Event listeners
+    departureAirportSelect.addEventListener('change', function() {
+        loadDestinations(this.value);
+    });
+
+    if (departureDateInput) {
+        departureDateInput.addEventListener('change', function() {
+            const startDate = new Date(this.value);
+            const endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + 14);
+            
+            if (departureEndDateInput) {
+                departureEndDateInput.min = this.value;
+                if (departureEndDateInput.value < this.value) {
+                    departureEndDateInput.value = endDate.toISOString().split('T')[0];
+                }
+            }
+        });
+    }
+
+    // Form submission
+    if (form) {
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            console.log('Form submitted');
+            
+            if (loadingDiv) loadingDiv.style.display = 'block';
+            if (resultsDiv) resultsDiv.style.display = 'none';
+            if (searchBtn) searchBtn.disabled = true;
+            
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+            data.destination_airport = destinationAirportSelect.value || 'ALL';
+            
+            try {
+                const response = await fetch('/api/search/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayResults(result.data);
+                } else {
+                    displayError(result.error);
+                }
+                
+            } catch (error) {
+                displayError('Network error: ' + error.message);
+            } finally {
+                if (loadingDiv) loadingDiv.style.display = 'none';
+                if (searchBtn) searchBtn.disabled = false;
+            }
+        });
+    }
+
+    function displayResults(data) {
+        allFlights = data.oneway_flights || [];
+        currentPage = 1;
+        renderFlightResults();
+    }
+
+    function renderFlightResults() {
+        let html = '';
+        
+        if (allFlights.length === 0) {
+            html = '<div class="error">No flights found for your search criteria.</div>';
+            if (resultsDiv) {
+                resultsDiv.innerHTML = `<div class="results">${html}</div>`;
+                resultsDiv.style.display = 'block';
+            }
+            return;
+        }
+
+        const totalPages = Math.ceil(allFlights.length / flightsPerPage);
+        const startIndex = (currentPage - 1) * flightsPerPage;
+        const endIndex = startIndex + flightsPerPage;
+        const currentFlights = allFlights.slice(startIndex, endIndex);
+
+        html += `
+            <div class="search-info">
+                <strong>Search Results:</strong> 
+                Found ${allFlights.length} flights | 
+                Showing ${startIndex + 1}-${Math.min(endIndex, allFlights.length)} | 
+                Page ${currentPage} of ${totalPages}
+            </div>
+        `;
+
+        if (allFlights.length > 0) {
+            html += `
+                <div class="best-deal">
+                    🏆 Best Deal: ${allFlights[0].price} ${allFlights[0].currency} 
+                    to ${allFlights[0].destination} (${allFlights[0].flight_number})
+                </div>
+            `;
+        }
+
+        html += `
+            <h3>🛫 Flights Found (${allFlights.length} total results)</h3>
+            <table class="flight-table">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Price</th>
+                        <th>Flight</th>
+                        <th>Departure</th>
+                        <th>Destination</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        currentFlights.forEach((flight, index) => {
+            const globalRank = startIndex + index + 1;
+            html += `
+                <tr>
+                    <td>${globalRank}</td>
+                    <td class="price">${flight.price} ${flight.currency}</td>
+                    <td><span class="flight-number">${flight.flight_number}</span></td>
+                    <td>${flight.departure_time}</td>
+                    <td>${flight.destination} - ${flight.destination_full}</td>
+                </tr>
+            `;
+        });
+
+        html += '</tbody></table>';
+
+        if (totalPages > 1) {
+            html += '<div class="pagination">';
+            html += `<button onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>« Previous</button>`;
+            
+            const startPage = Math.max(1, currentPage - 2);
+            const endPage = Math.min(totalPages, currentPage + 2);
+            
+            if (startPage > 1) {
+                html += `<button onclick="changePage(1)">1</button>`;
+                if (startPage > 2) html += '<span class="page-info">...</span>';
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<button onclick="changePage(${i})" ${i === currentPage ? 'class="active"' : ''}>${i}</button>`;
+            }
+            
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) html += '<span class="page-info">...</span>';
+                html += `<button onclick="changePage(${totalPages})">${totalPages}</button>`;
+            }
+            
+            html += `<button onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>Next »</button>`;
+            html += '</div>';
+        }
+
+        if (resultsDiv) {
+            resultsDiv.innerHTML = `<div class="results">${html}</div>`;
+            resultsDiv.style.display = 'block';
+        }
+    }
+
+    window.changePage = function(page) {
+        if (page < 1 || page > Math.ceil(allFlights.length / flightsPerPage)) return;
+        currentPage = page;
+        renderFlightResults();
+        if (resultsDiv) resultsDiv.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function displayError(error) {
+        if (resultsDiv) {
+            resultsDiv.innerHTML = `<div class="error">❌ Error: ${error}</div>`;
+            resultsDiv.style.display = 'block';
+        }
+    }
+
+    // Initialize
+    setDefaultDates();
+    destinationAirportSelect.innerHTML = '<option value="ALL">All destinations</option>';
+    
+    if (departureAirportSelect.value) {
+        loadDestinations(departureAirportSelect.value);
+    }
+    
+    console.log('✅ Initialization complete!');
+});
+</script>
+{% endblock %}

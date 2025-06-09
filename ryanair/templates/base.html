@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ page_title|default:"Ryanair Flight Search" }}{% endblock %}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <!-- 🎯 RYANAIR LOGO IS HERE! -->
+                <img src="https://static-00.iconduck.com/assets.00/ryanair-icon-512x512-g3z4i7eu.png" 
+                     alt="Ryanair Logo" 
+                     onerror="this.style.display='none'; this.parentNode.innerHTML='✈️';">
+            </div>
+            <h1>{% block header_title %}Ryanair Flight Search{% endblock %}</h1>
+            <p>{% block header_subtitle %}Find the cheapest flights with just a few clicks{% endblock %}</p>
+        </div>
+
+        <main>
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,36 @@
+.git
+.gitignore
+
+# Documentation
+README.md
+Dockerfile
+.dockerignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+
+# Virtual environment
+.venv/
+
+# IDE
+.vscode
+.idea
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Django
+*.log
+db.sqlite3
+
+# Environment
+.env
+
+.devcontainer/
+assets/
