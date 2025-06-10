@@ -52,10 +52,10 @@ jobs:
 
       - name: Bump version and push tag
         id: tag
-        uses: hennejg/github-tag-action@v4.1.jh1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          release_branches: 'main'
+        uses: anothrNick/github-tag-action@v1 
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_PREFIX: v
           
 
       - name: Build and push Docker image
