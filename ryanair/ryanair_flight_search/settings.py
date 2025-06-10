@@ -9,12 +9,13 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-your-secret-key-here'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-your-secret-key-here')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False')
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+ALLOWED_HOSTS_ENV = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,0.0.0.0')
+ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_ENV.split(',') if host.strip()]
 
 # Application definition - MINIMAL APPS (no auth, no admin, no sessions)
 INSTALLED_APPS = [
@@ -51,8 +52,8 @@ WSGI_APPLICATION = 'ryanair_flight_search.wsgi.application'
 # 🚫 NO DATABASE CONFIGURATION AT ALL!
 
 # Internationalization
-LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
+LANGUAGE_CODE = os.environ.get('DJANGO_LANGUAGE_CODE', 'en-us')
+TIME_ZONE = os.environ.get('DJANGO_TIME_ZONE', 'UTC')
 USE_I18N = False  # Disable to avoid any DB-related queries
 USE_TZ = True
 
@@ -73,6 +74,3 @@ RYANAIR_API_SETTINGS = {
     'CACHE_TIMEOUT': 300,  # 5 minutes
 }
 
-# 🎯 DATABASE-FREE CONFIGURATION
-# Tell Django we don't want to use any database features
-USE_TZ = True
